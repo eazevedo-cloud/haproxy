@@ -1,0 +1,67 @@
+# values.yaml
+haproxy:
+  enabled: true
+  config:
+    ssl:
+      enabled: false
+    frontendPort: 5021
+  configFiles:
+    haproxy.cfg: |
+      global
+        daemon
+        maxconn 4096
+        
+      defaults
+        mode tcp
+        timeout connect 10s
+        timeout client 30s
+        timeout server 30s
+        
+      frontend proxy_frontend
+        bind *:5021 accept-proxy
+        mode tcp
+        
+        # ACL definitions based on source IP from proxy protocol
+        acl is_client_a src 192.168.0.1
+        acl is_client_b src 192.168.0.2
+        
+        # Default backend if no match
+        default_backend service_a
+        
+        # Route based on source IP
+        use_backend service_a if is_client_a
+        use_backend service_b if is_client_b
+        
+      backend service_a
+        mode tcp
+        server service_a service-a:5021 check
+        
+      backend service_b
+        mode tcp
+        server service_b service-b:5021 check
+
+---
+# service-a.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-a
+spec:
+  ports:
+    - port: 5021
+      targetPort: 5021
+  selector:
+    app: workload-a
+
+---
+# service-b.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-b
+spec:
+  ports:
+    - port: 5021
+      targetPort: 5021
+  selector:
+    app: workload-b
